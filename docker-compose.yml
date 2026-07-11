@@ -1,0 +1,62 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: pramana_db
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-pramana_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pramana_secure_pass_998}
+      POSTGRES_DB: ${POSTGRES_DB:-pramana_db}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pramana_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-pramana_admin} -d ${POSTGRES_DB:-pramana_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: pramana_backend
+    restart: always
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    volumes:
+      - ./backend:/app
+    environment:
+      - ENV=${ENV:-development}
+      - PROJECT_NAME=${PROJECT_NAME:-Pramana Regulatory Intelligence Platform}
+      - API_V1_STR=${API_V1_STR:-/api/v1}
+      - BACKEND_CORS_ORIGINS=${BACKEND_CORS_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
+      - DATABASE_URL=${DATABASE_URL:-postgresql+asyncpg://pramana_admin:pramana_secure_pass_998@db:5432/pramana_db}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: pramana_frontend
+    restart: always
+    ports:
+      - "${VITE_PORT:-3000}:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - VITE_API_URL=${VITE_API_URL:-http://localhost:8000/api/v1}
+    depends_on:
+      - backend
+
+volumes:
+  pramana_pgdata:
+    driver: local

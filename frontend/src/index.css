@@ -1,0 +1,85 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 220 33% 98%;
+    --foreground: 224 71.4% 4.1%;
+    --card: 0 0% 100%;
+    --card-foreground: 224 71.4% 4.1%;
+    --border: 220 13% 91%;
+    --primary: 220 80% 18%; /* Deep Navy */
+    --accent: 162 84% 39%; /* Emerald */
+    --muted: 220 9% 46%;
+  }
+
+  .dark {
+    --background: 224 71% 4%; /* Slate 950/Navy 950 */
+    --foreground: 210 20% 98%;
+    --card: 224 71% 6%; /* Card background */
+    --card-foreground: 210 20% 98%;
+    --border: 217.2 32.6% 12%; /* Border color */
+    --primary: 210 40% 96%;
+    --accent: 162 84% 39%; /* Emerald */
+    --muted: 215 20.2% 65.1%;
+  }
+
+  body {
+    transition: background-color 0.3s ease, color 0.3s ease;
+    font-family: 'Inter', sans-serif;
+  }
+
+  /* Custom Premium Scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.2);
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(148, 163, 184, 0.4);
+  }
+}
+
+@layer components {
+  /* Premium Glassmorphic utilities */
+  .glass-panel {
+    @apply border border-slate-200/50 dark:border-slate-800/50 bg-white/70 dark:bg-slate-950/60 backdrop-blur-md shadow-glass-light dark:shadow-glass-dark;
+  }
+
+  .glass-card {
+    @apply border border-slate-200/40 dark:border-slate-800/40 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm shadow-sm hover:shadow-md transition-all duration-300;
+  }
+
+  .glass-input {
+    @apply bg-slate-50/50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 focus:border-accent-emerald-500 dark:focus:border-accent-emerald-500 focus:ring-1 focus:ring-accent-emerald-500/20 rounded-lg outline-none transition-all duration-200;
+  }
+
+  /* React Flow Custom Theme Overrides */
+  .react-flow__node {
+    @apply !border-0 !p-0 !rounded-xl !bg-transparent;
+  }
+  
+  .react-flow__edge-path {
+    @apply stroke-slate-300 dark:stroke-slate-700;
+    stroke-width: 2px;
+  }
+
+  .react-flow__handle {
+    @apply !bg-accent-emerald-500 !border-slate-100 dark:!border-slate-950 !w-2 !h-2;
+  }
+  
+  .react-flow__controls {
+    @apply !bg-white/80 dark:!bg-slate-900/80 !border !border-slate-200 dark:!border-slate-800 !rounded-lg !shadow-sm;
+  }
+
+  .react-flow__controls-button {
+    @apply !bg-transparent !border-b !border-slate-200 dark:!border-slate-800 hover:!bg-slate-100 dark:hover:!bg-slate-800 !text-slate-800 dark:!text-slate-200;
+  }
+}

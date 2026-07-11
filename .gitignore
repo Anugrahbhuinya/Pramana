@@ -1,0 +1,37 @@
+# Environment variables (contains secrets)
+.env
+.env.*
+
+# Python virtual environments
+venv/
+.venv/
+env/
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*.so
+
+# Jupyter notebook checkpoints
+.ipynb_checkpoints/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# IDE configuration files
+.idea/
+.vscode/
+*.swp
+
+# Node.js dependencies
+frontend/node_modules/
+
+# Docker artifacts (optional - prevents Docker clutter from being committed)
+*.log
+*.pid
+*.gz
+*.zip
+*.tgz
+*.db
+*.sqlite
