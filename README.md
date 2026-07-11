@@ -213,5 +213,4 @@ docker compose exec -e PYTHONPATH=. backend pytest tests
 ```
 
 
-#   P r a m a n a  
- 
+#
