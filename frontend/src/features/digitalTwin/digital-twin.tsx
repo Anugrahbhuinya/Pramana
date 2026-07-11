@@ -204,7 +204,7 @@ export const DigitalTwin: React.FC = () => {
     }
 
     if (selectedNodeId.startsWith("clause-")) {
-      const trace = explainData?.trace?.find((t: any) => t.source_clause.includes(title));
+      const trace = explainData?.trace?.find((t: any) => t.source_clause.includes(title) || title.includes(t.source_clause));
       return (
         <div className="space-y-4">
           <Badge className="bg-amber-500/10 text-amber-500 border border-amber-500/20 font-bold uppercase tracking-wider text-[9px]">Clause Rule</Badge>
@@ -213,9 +213,19 @@ export const DigitalTwin: React.FC = () => {
             {description}
           </p>
           {trace && (
-            <div className="space-y-2 pt-3 border-t border-slate-100 dark:border-slate-800/80">
-              <span className="text-[10px] text-slate-400 font-bold block uppercase tracking-wider">AI Reasoning</span>
-              <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed bg-slate-50 dark:bg-slate-900/40 p-3 rounded-lg">{trace.reason}</p>
+            <div className="space-y-3 pt-3 border-t border-slate-100 dark:border-slate-800/80">
+              <div>
+                <span className="text-[10px] text-slate-400 font-bold block uppercase tracking-wider mb-1">Verbatim Clause Text</span>
+                <blockquote className="text-[11px] text-slate-600 dark:text-slate-400 italic leading-relaxed border-l-2 border-amber-500/40 pl-3 bg-amber-500/5 py-1.5 rounded-r-lg">
+                  "{trace.source_text_snippet || trace.supporting_context}"
+                </blockquote>
+              </div>
+              <div>
+                <span className="text-[10px] text-slate-400 font-bold block uppercase tracking-wider mb-1">AI Reasoning</span>
+                <p className="text-xs text-slate-750 dark:text-slate-300 leading-relaxed bg-slate-50 dark:bg-slate-900/40 p-3 rounded-lg">
+                  {trace.reason}
+                </p>
+              </div>
             </div>
           )}
         </div>
@@ -223,6 +233,13 @@ export const DigitalTwin: React.FC = () => {
     }
 
     if (selectedNodeId.startsWith("obligation-")) {
+      // Find matching trace item by matching supporting context or clause
+      const trace = explainData?.trace?.find((t: any) => 
+        description.toLowerCase().includes(t.supporting_context.substring(0, 15).toLowerCase()) ||
+        t.supporting_context.toLowerCase().includes(description.substring(0, 15).toLowerCase()) ||
+        t.source_clause.toLowerCase().includes(title.toLowerCase())
+      );
+
       return (
         <div className="space-y-4">
           <Badge className="bg-purple-500/10 text-purple-500 border border-purple-500/20 font-bold uppercase tracking-wider text-[9px]">Actionable Mandate</Badge>
@@ -230,6 +247,43 @@ export const DigitalTwin: React.FC = () => {
           <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed font-serif bg-slate-50 dark:bg-slate-950 p-3 rounded-lg">
             {description}
           </p>
+          {trace && (
+            <div className="space-y-4 pt-4 border-t border-slate-150 dark:border-slate-800/80 text-xs">
+              <div>
+                <span className="text-[10px] text-slate-450 block font-semibold uppercase mb-1">Business Impact & Reasoning</span>
+                <p className="text-[11px] text-slate-600 dark:text-slate-350 leading-relaxed bg-slate-50 dark:bg-slate-900/40 p-2.5 rounded-lg">
+                  {trace.reason}
+                </p>
+              </div>
+              
+              {trace.action_required && (
+                <div>
+                  <span className="text-[10px] text-slate-450 block font-semibold uppercase mb-1">Recommended Action</span>
+                  <p className="text-[11px] text-accent-emerald-500 font-semibold bg-accent-emerald-500/8 border border-accent-emerald-500/20 p-2.5 rounded-lg">
+                    {trace.action_required}
+                  </p>
+                </div>
+              )}
+
+              <div>
+                <span className="text-[10px] text-slate-450 block font-semibold uppercase mb-1">Evidence Required</span>
+                <p className="text-[11px] text-slate-600 dark:text-slate-350 leading-relaxed bg-slate-50 dark:bg-slate-900/40 p-2.5 rounded-lg">
+                  {trace.evidence_required}
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <span className="text-[10px] text-slate-455 block font-semibold uppercase">Affected Entity</span>
+                  <Badge variant="outline" className="mt-0.5">{trace.affected_entity}</Badge>
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-455 block font-semibold uppercase">Confidence Match</span>
+                  <Badge variant="emerald" className="mt-0.5">{Math.round(trace.confidence * 100)}%</Badge>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       );
     }

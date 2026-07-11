@@ -182,14 +182,16 @@ export const UploadPage: React.FC = () => {
 
   const isPending = uploadMutation.isPending || analyzeMutation.isPending;
 
-  // Compute status for the 6 stages of the Intelligence Pipeline
+  // 8-stage pipeline with phase labels matching the AI briefing
   const pipelineStages: PipelineStage[] = [
-    { title: "Regulatory Intelligence", description: "Reading Circular" },
-    { title: "Obligation Extraction", description: "Identifying Compliance Requirements" },
-    { title: "Impact Intelligence", description: "Mapping Organizational Impact" },
-    { title: "Risk Intelligence", description: "Assessing Regulatory Risk" },
-    { title: "Audit Intelligence", description: "Preparing Compliance Evidence" },
-    { title: "Consensus Complete", description: "Pramana Intelligence Council verified" }
+    { title: "Reading Regulation", description: "Parsing and chunking PDF text" },
+    { title: "Extracting Clauses", description: "Identifying clause numbers and titles" },
+    { title: "Understanding Obligations", description: "Extracting actionable mandates" },
+    { title: "Mapping Departments", description: "Identifying operational impact" },
+    { title: "Assessing Risk", description: "Calculating compliance risk scores" },
+    { title: "Generating Controls", description: "Building audit evidence checklist" },
+    { title: "Preparing Blueprint", description: "Synthesizing execution plan" },
+    { title: "Consensus Complete", description: "Intelligence Council verified ✓" },
   ];
 
   const getStageStatus = (index: number): "pending" | "active" | "completed" => {
@@ -198,16 +200,14 @@ export const UploadPage: React.FC = () => {
     }
     if (analyzeMutation.isPending) {
       if (index === 0) return "completed";
-      const progress = analysisProgress;
-      if (index === 1) return progress < 25 ? "active" : "completed";
-      if (index === 2) return progress < 45 ? (progress >= 25 ? "active" : "pending") : "completed";
-      if (index === 3) return progress < 65 ? (progress >= 45 ? "active" : "pending") : "completed";
-      if (index === 4) return progress < 85 ? (progress >= 65 ? "active" : "pending") : "completed";
-      if (index === 5) return progress < 100 ? (progress >= 85 ? "active" : "pending") : "completed";
+      const p = analysisProgress;
+      const thresholds = [0, 14, 28, 43, 57, 71, 85, 95];
+      const nextThresholds = [14, 28, 43, 57, 71, 85, 95, 100];
+      if (p >= nextThresholds[index]) return "completed";
+      if (p >= thresholds[index]) return "active";
+      return "pending";
     }
-    if (analyzeMutation.isSuccess) {
-      return "completed";
-    }
+    if (analyzeMutation.isSuccess) return "completed";
     return "pending";
   };
 
@@ -295,41 +295,66 @@ export const UploadPage: React.FC = () => {
                 </div>
 
                 {isPending ? (
-                  /* Animated Intelligence Pipeline */
+                  /* Animated 8-Stage Intelligence Pipeline */
                   <div className="space-y-4 border-t border-slate-200 dark:border-slate-800/80 pt-4">
-                    <span className="text-[10px] text-slate-400 font-bold block uppercase tracking-wider">Pramana Intelligence Ingestion Pipeline</span>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase tracking-wider">Pramana AI Pipeline</span>
+                      <span className="text-[10px] font-mono font-bold text-accent-emerald-500">
+                        {uploadMutation.isPending ? `${uploadProgress}%` : `${analysisProgress}%`}
+                      </span>
+                    </div>
                     
-                    <div className="space-y-3">
+                    <div className="space-y-2">
                       {pipelineStages.map((stage, index) => {
-                        const status = getStageStatus(index);
+                        const stageStatus = getStageStatus(index);
                         return (
-                          <div key={index} className="flex items-center justify-between text-xs transition-opacity duration-300">
+                          <motion.div
+                            key={index}
+                            initial={{ opacity: 0, x: -8 }}
+                            animate={{ opacity: stageStatus === "pending" ? 0.4 : 1, x: 0 }}
+                            transition={{ delay: index * 0.08, duration: 0.3 }}
+                            className="flex items-center justify-between text-xs"
+                          >
                             <div className="flex items-center space-x-3 text-left">
-                              {status === "completed" && (
-                                <CheckCircle className="h-4 w-4 text-accent-emerald-500 shrink-0" />
-                              )}
-                              {status === "active" && (
-                                <Loader2 className="h-4 w-4 animate-spin text-accent-emerald-500 shrink-0" />
-                              )}
-                              {status === "pending" && (
-                                <Clock className="h-4 w-4 text-slate-350 shrink-0" />
-                              )}
+                              <div className="w-4 h-4 shrink-0 flex items-center justify-center">
+                                {stageStatus === "completed" && (
+                                  <CheckCircle className="h-4 w-4 text-accent-emerald-500" />
+                                )}
+                                {stageStatus === "active" && (
+                                  <Loader2 className="h-4 w-4 animate-spin text-accent-emerald-400" />
+                                )}
+                                {stageStatus === "pending" && (
+                                  <div className="h-3 w-3 rounded-full border border-slate-600" />
+                                )}
+                              </div>
                               <div>
-                                <span className={`font-semibold block ${status === "active" ? "text-slate-900 dark:text-white" : status === "completed" ? "text-slate-700 dark:text-slate-300" : "text-slate-400"}`}>
+                                <span className={`font-semibold block leading-tight ${
+                                  stageStatus === "active"
+                                    ? "text-slate-900 dark:text-white"
+                                    : stageStatus === "completed"
+                                    ? "text-slate-600 dark:text-slate-400"
+                                    : "text-slate-400"
+                                }`}>
                                   {stage.title}
                                 </span>
-                                <span className={`text-[10px] block ${status === "active" ? "text-accent-emerald-500" : "text-slate-400"}`}>
-                                  {stage.description}
-                                </span>
+                                {stageStatus === "active" && (
+                                  <span className="text-[10px] text-accent-emerald-500 font-medium">
+                                    {stage.description}
+                                  </span>
+                                )}
                               </div>
                             </div>
-                            
-                            {status === "active" && (
-                              <span className="text-accent-emerald-500 font-mono font-bold">
-                                {uploadMutation.isPending ? `${uploadProgress}%` : `${analysisProgress}%`}
+                            {stageStatus === "active" && (
+                              <span className="text-[9px] uppercase tracking-wider text-accent-emerald-500 font-bold animate-pulse">
+                                Running
                               </span>
                             )}
-                          </div>
+                            {stageStatus === "completed" && (
+                              <span className="text-[9px] uppercase tracking-wider text-slate-400 font-bold">
+                                Done
+                              </span>
+                            )}
+                          </motion.div>
                         );
                       })}
                     </div>

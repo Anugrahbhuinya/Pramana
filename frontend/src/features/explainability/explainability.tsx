@@ -13,11 +13,13 @@ import { exportDecisionTraceability } from "@/shared/utils/report-exporter";
 
 interface TraceItem {
   source_clause: string;
+  source_text_snippet?: string;
   reason: string;
   confidence: number;
   supporting_context: string;
   affected_entity: string;
   evidence_required: string;
+  action_required?: string;
 }
 
 export const Explainability: React.FC = () => {
@@ -74,7 +76,7 @@ export const Explainability: React.FC = () => {
 
   const highlightTerms = (text: string) => {
     if (!text) return "";
-    const terms = ["segregate", "reconciliation", "escrow", "audit", "pre-trade", "limits", "penalties", "daily", "matching"];
+    const terms = ["segregate", "reconciliation", "escrow", "audit", "pre-trade", "limits", "penalties", "daily", "matching", "leverage", "margin", "incident", "sla"];
     let highlighted = text;
     
     terms.forEach(term => {
@@ -128,7 +130,7 @@ export const Explainability: React.FC = () => {
                       {traces[expandedIndex].source_clause}
                     </span>
                     <blockquote className="rounded-lg bg-slate-50 dark:bg-slate-950/60 p-4 border-l-2 border-slate-350 dark:border-slate-750 text-xs text-slate-600 dark:text-slate-300 leading-relaxed font-serif">
-                      {highlightTerms(traces[expandedIndex].supporting_context || "No context text found.")}
+                      {highlightTerms(traces[expandedIndex].source_text_snippet || traces[expandedIndex].supporting_context || "No context text found.")}
                     </blockquote>
                   </div>
                   <div className="grid grid-cols-2 gap-4 text-xs pt-2">
@@ -180,8 +182,8 @@ export const Explainability: React.FC = () => {
                             <span className="font-mono text-[10px] font-bold text-slate-500 dark:text-slate-400">
                               {trace.source_clause}
                             </span>
-                            <span className="h-1 w-1 rounded-full bg-slate-300" />
-                            <span className="text-[9px] text-slate-400 font-semibold uppercase">{trace.affected_entity}</span>
+                            <span className="h-1.5 w-1.5 bg-slate-350 dark:bg-slate-650 rounded-full" />
+                            <span className="text-[9px] text-slate-450 dark:text-slate-350 font-bold uppercase">{trace.affected_entity}</span>
                           </div>
                           <h4 className="text-xs font-bold text-slate-900 dark:text-white truncate">
                             {trace.reason}
@@ -216,48 +218,76 @@ export const Explainability: React.FC = () => {
                                 <Shield className="h-2.5 w-2.5" />
                               </span>
                               <div className="space-y-1">
-                                <span className="text-[10px] text-blue-500 font-bold uppercase tracking-wider block">1. Regulatory Clause Node</span>
+                                <span className="text-[10px] text-blue-550 font-bold uppercase tracking-wider block">1. Source Clause Node</span>
                                 <div className="border border-blue-500/10 bg-blue-500/5 p-3 rounded-lg text-[11px] font-mono leading-normal text-slate-700 dark:text-slate-300">
                                   {trace.source_clause}
                                 </div>
                               </div>
                             </div>
 
-                            {/* Step 2: Reasoning Logic */}
+                            {/* Step 2: Retrieved Context */}
+                            <div className="relative">
+                              <span className="absolute -left-[30px] top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-slate-550 dark:bg-slate-750 text-white shadow-sm ring-4 ring-white dark:ring-slate-950">
+                                <FileText className="h-2.5 w-2.5" />
+                              </span>
+                              <div className="space-y-1">
+                                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider block">2. Retrieved Verbatim Context</span>
+                                <div className="border border-slate-500/10 bg-slate-500/5 p-3 rounded-lg text-[11px] italic text-slate-600 dark:text-slate-400">
+                                  "{trace.source_text_snippet || trace.supporting_context}"
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Step 3: AI Reasoning & Risk Assessment */}
                             <div className="relative">
                               <span className="absolute -left-[30px] top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-amber-500 text-white shadow-sm ring-4 ring-white dark:ring-slate-950">
                                 <GitCommit className="h-2.5 w-2.5" />
                               </span>
                               <div className="space-y-1">
-                                <span className="text-[10px] text-amber-500 font-bold uppercase tracking-wider block">2. AI reasoning Path</span>
+                                <span className="text-[10px] text-amber-500 font-bold uppercase tracking-wider block">3. AI Reasoning & Risk Assessment</span>
                                 <div className="border border-amber-500/10 bg-amber-500/5 p-3 rounded-lg text-slate-700 dark:text-slate-300 leading-relaxed">
                                   {trace.reason}
                                 </div>
                               </div>
                             </div>
 
-                            {/* Step 3: Required Evidence */}
+                            {/* Step 4: Recommended Action */}
+                            {trace.action_required && (
+                              <div className="relative">
+                                <span className="absolute -left-[30px] top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-accent-emerald-500 text-white shadow-sm ring-4 ring-white dark:ring-slate-950">
+                                  <CheckCircle2 className="h-2.5 w-2.5" />
+                                </span>
+                                <div className="space-y-1">
+                                  <span className="text-[10px] text-accent-emerald-500 font-bold uppercase tracking-wider block">4. Recommended Action Item</span>
+                                  <div className="border border-accent-emerald-500/15 bg-accent-emerald-500/5 p-3 rounded-lg text-slate-700 dark:text-slate-350 leading-relaxed font-semibold">
+                                    {trace.action_required}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Step 5: Required Evidence */}
                             <div className="relative">
                               <span className="absolute -left-[30px] top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-purple-500 text-white shadow-sm ring-4 ring-white dark:ring-slate-950">
                                 <FileCheck className="h-2.5 w-2.5" />
                               </span>
                               <div className="space-y-1">
-                                <span className="text-[10px] text-purple-500 font-bold uppercase tracking-wider block">3. Mandatory Evidence Requirement</span>
-                                <div className="border border-purple-500/10 bg-purple-500/5 p-3 rounded-lg text-slate-700 dark:text-slate-300 leading-relaxed font-serif">
+                                <span className="text-[10px] text-purple-500 font-bold uppercase tracking-wider block">5. Mandatory Evidence Requirement</span>
+                                <div className="border border-purple-500/10 bg-purple-500/5 p-3 rounded-lg text-slate-700 dark:text-slate-300 leading-relaxed">
                                   {trace.evidence_required}
                                 </div>
                               </div>
                             </div>
 
-                            {/* Step 4: Verification & Execution */}
+                            {/* Step 6: Execution Task */}
                             <div className="relative">
-                              <span className="absolute -left-[30px] top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-accent-emerald-500 text-white shadow-sm ring-4 ring-white dark:ring-slate-950">
-                                <CheckCircle2 className="h-2.5 w-2.5" />
+                              <span className="absolute -left-[30px] top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-indigo-500 text-white shadow-sm ring-4 ring-white dark:ring-slate-950">
+                                <Compass className="h-2.5 w-2.5" />
                               </span>
                               <div className="space-y-1">
-                                <span className="text-[10px] text-accent-emerald-500 font-bold uppercase tracking-wider block">4. Execution Blueprint node</span>
-                                <div className="border border-accent-emerald-500/10 bg-accent-emerald-500/5 p-3 rounded-lg text-slate-700 dark:text-slate-300 leading-normal">
-                                  Assign control checklist items to <span className="font-semibold text-accent-emerald-500">{trace.affected_entity}</span>.
+                                <span className="text-[10px] text-indigo-550 font-bold uppercase tracking-wider block">6. Execution Owner Node</span>
+                                <div className="border border-indigo-500/10 bg-indigo-500/5 p-3 rounded-lg text-slate-700 dark:text-slate-300 leading-normal">
+                                  Assign control checklist items to <span className="font-semibold text-indigo-500">{trace.affected_entity}</span>.
                                 </div>
                               </div>
                             </div>

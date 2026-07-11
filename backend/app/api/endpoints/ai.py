@@ -65,6 +65,10 @@ class AnalysisResponse(BaseModel):
     status: str = Field(
         ..., description="Session run status (completed, failed, running)"
     )
+    analysis_mode: str = Field(
+        default="live_ai",
+        description="Whether analysis used live Gemini AI or grounded mock fallback",
+    )
     regulatory_ai: Optional[Dict[str, Any]] = None
     risk_ai: Optional[Dict[str, Any]] = None
     operations_ai: Optional[Dict[str, Any]] = None
@@ -72,7 +76,6 @@ class AnalysisResponse(BaseModel):
     document_name: Optional[str] = None
     regulation_title: Optional[str] = None
     regulation_number: Optional[str] = None
-
 
 
 class ExecutiveSummaryResponse(BaseModel):
@@ -85,15 +88,20 @@ class ExecutiveSummaryResponse(BaseModel):
     approval_required: bool
     key_findings: List[str]
     immediate_actions_required: List[str]
+    affected_departments: List[str] = Field(default=[])
+    implementation_timeline: Optional[str] = None
+    referenced_regulations: List[str] = Field(default=[])
 
 
 class ExplainabilityTraceItem(BaseModel):
     source_clause: str
+    source_text_snippet: str = Field(default="")
     reason: str
     confidence: float
     supporting_context: str
     affected_entity: str
     evidence_required: str
+    action_required: str = Field(default="")
 
 
 class ExplainabilityResponse(BaseModel):
@@ -144,6 +152,19 @@ def get_retrieval_service() -> RetrievalService:
 
 
 # --- API Routes ---
+
+
+@router.get("/status")
+async def get_platform_status():
+    """Returns AI platform status: whether Gemini is connected or running in demo mode."""
+    from app.core.config import settings
+    has_key = bool(settings.GEMINI_API_KEY and settings.GEMINI_API_KEY.strip())
+    return {
+        "has_gemini_key": has_key,
+        "mode": "live" if has_key else "demo",
+        "model": settings.GEMINI_MODEL if has_key else None,
+        "message": "Live AI analysis active" if has_key else "Running in demo mode — upload a SEBI circular to begin grounded analysis",
+    }
 
 
 @router.post("/seed-demo", status_code=status.HTTP_200_OK)
@@ -299,10 +320,14 @@ async def analyze_document(
         reg_res = await db.execute(reg_stmt)
         reg = reg_res.scalar_one_or_none()
 
+        from app.core.config import settings
+        analysis_mode = "live_ai" if bool(settings.GEMINI_API_KEY and settings.GEMINI_API_KEY.strip()) else "demo_mode"
+
         return AnalysisResponse(
             session_id=session.id,
             document_id=session.document_id,
             status=session.status,
+            analysis_mode=analysis_mode,
             regulatory_ai=session.regulatory_ai_analysis,
             risk_ai=session.risk_ai_analysis,
             operations_ai=session.operations_ai_analysis,
@@ -349,10 +374,14 @@ async def get_analysis_session(
     reg_res = await db.execute(reg_stmt)
     reg = reg_res.scalar_one_or_none()
 
+    from app.core.config import settings
+    analysis_mode = "live_ai" if bool(settings.GEMINI_API_KEY and settings.GEMINI_API_KEY.strip()) else "demo_mode"
+
     return AnalysisResponse(
         session_id=session.id,
         document_id=session.document_id,
         status=session.status,
+        analysis_mode=analysis_mode,
         regulatory_ai=session.regulatory_ai_analysis,
         risk_ai=session.risk_ai_analysis,
         operations_ai=session.operations_ai_analysis,
@@ -389,6 +418,9 @@ async def get_executive_summary(
         approval_required=meta.get("approval_required", False),
         key_findings=meta.get("key_findings", []),
         immediate_actions_required=meta.get("immediate_actions_required", []),
+        affected_departments=meta.get("affected_departments", []),
+        implementation_timeline=meta.get("implementation_timeline"),
+        referenced_regulations=meta.get("referenced_regulations", []),
     )
 
 

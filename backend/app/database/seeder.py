@@ -47,32 +47,57 @@ async def seed_demo_data(db: AsyncSession) -> None:
         regulatory_ai_analysis={
             "status": "completed",
             "confidence": 0.98,
-            "analysis": "Analyzed MIRSD circular on Client Fund Segregation.",
-            "recommendations": ["Establish dedicated escrow bank accounts.", "Automate daily treasury balance reconciliation."]
+            "analysis": "Analyzed MIRSD circular on Client Fund Segregation. Extracted Clause 4.1 and Clause 4.2 detailing strict bank segregation rules.",
+            "recommendations": ["Establish dedicated escrow bank accounts per Clause 4.1.", "Automate daily treasury balance reconciliation."]
         },
         risk_ai_analysis={
             "status": "completed",
             "confidence": 0.95,
-            "analysis": "Identified high operational exposure regarding co-mingling of client margins.",
+            "analysis": "Identified high operational exposure regarding co-mingling of client margins. Gaps in Clause 4.1 present high risk of license suspension.",
             "recommendations": ["Implement real-time fund segregation blocks.", "Review inter-day margin limits."]
         },
         operations_ai_analysis={
             "status": "completed",
             "confidence": 0.96,
-            "analysis": "Identified impact on BackOffice, Treasury Ledger, and Bank API integrations.",
+            "analysis": "Identified impact on BackOffice, Treasury Ledger, and Bank API integrations for Clause 4.1 and 4.2.",
             "recommendations": ["Update Bank Escrow balance synchronization scripts."]
         },
         audit_ai_analysis={
             "status": "completed",
             "confidence": 0.97,
-            "analysis": "Identified 8 key evidence checkpoints including bank log audits.",
+            "analysis": "Identified 8 key evidence checkpoints including bank log audits required for Clause 4.2.",
             "recommendations": ["Deploy automated audit logging on escrow balances."]
         },
-        executive_summary="SEBI has issued strict guidelines for Demo Securities Ltd. requiring complete segregation of client escrow funds from proprietary broker balances. Daily reconciliation logs must be compiled and signed off prior to the next trading session. Non-compliance results in immediate terminal disablement.",
+        executive_summary="SEBI has issued strict guidelines for Demo Securities Ltd. requiring complete segregation of client escrow funds from proprietary broker balances. Daily reconciliation logs must be compiled and signed off prior to the next trading session. Non-compliance results in immediate terminal disablement under Chapter V.",
         decision_metadata={
-            "priority_order": ["P0: Escrow Account Segregation", "P1: Daily Balance Reconciliation", "P2: CA Escrow Verification"],
+            "priority_order": [
+                "P0: Clause 4.1 – Escrow Account Segregation",
+                "P1: Clause 4.1 – Daily Balance Reconciliation",
+                "P2: Clause 4.2 – CA Escrow Verification"
+            ],
             "escalation_needed": True,
-            "approval_required": True
+            "approval_required": True,
+            "recommended_actions": [
+                "Establish dedicated escrow bank accounts to separate client margins from corporate funds.",
+                "Deploy automated ledger reconciliation scripts before daily closing.",
+                "Appoint external Chartered Accountant for weekly verification certificate submission."
+            ],
+            "dependencies": [
+                "Weekly verification depends on daily sign-offs completion.",
+                "Daily reconciliation depends on real-time bank ledger feeds."
+            ],
+            "key_findings": [
+                "Per Clause 4.1: Client funds must be held in segregated bank escrow accounts.",
+                "Per Clause 4.1: Daily reconciliation logs must be reviewed and signed off.",
+                "Per Clause 4.2: Qualified CA certification must be submitted weekly to depositories."
+            ],
+            "immediate_actions_required": [
+                "Appoint CA for weekly escrow reconciliations audits per Clause 4.2.",
+                "Implement separate ledger configuration mapping for client deposits per Clause 4.1."
+            ],
+            "affected_departments": ["Treasury", "Compliance", "Operations", "Audit"],
+            "implementation_timeline": "P0 reconciliations must be automated immediately. Weekly CA certificate submission must begin by next week.",
+            "referenced_regulations": ["SEBI Act, 1992 - Section 11(1)", "Chapter V Regulation Rules"]
         },
         explainability_data={}
     )
@@ -112,32 +137,57 @@ async def seed_demo_data(db: AsyncSession) -> None:
         regulatory_ai_analysis={
             "status": "completed",
             "confidence": 0.99,
-            "analysis": "Analyzed MRD circular on Intraday Margin Leverage Capping.",
-            "recommendations": ["Enforce hard leverage limit checkpoints in OMS."]
+            "analysis": "Analyzed MRD circular on Intraday Margin Leverage Capping. Extracted Clause 1.1 detailing leverage thresholds.",
+            "recommendations": ["Enforce hard leverage limit checkpoints in OMS per Clause 1.1."]
         },
         risk_ai_analysis={
             "status": "completed",
             "confidence": 0.97,
-            "analysis": "Identified critical exposure in futures trading margins for Sample Broker Pvt Ltd.",
+            "analysis": "Identified critical exposure in futures trading margins for Sample Broker Pvt Ltd. under Clause 1.1.",
             "recommendations": ["Cap proprietary leverage ratio to 1:5 of collateral value."]
         },
         operations_ai_analysis={
             "status": "completed",
             "confidence": 0.98,
-            "analysis": "Requires OMS risk parameter modifications and RMS updates.",
+            "analysis": "Requires OMS risk parameter modifications and RMS updates based on Clause 1.1.",
             "recommendations": ["Deploy automated capital margin threshold checks."]
         },
         audit_ai_analysis={
             "status": "completed",
             "confidence": 0.96,
-            "analysis": "Requires post-trade order log audits and validation audits.",
+            "analysis": "Requires post-trade order log audits and validation audits mapping to Clause 1.1.",
             "recommendations": ["Log all RMS block triggers for audit trails."]
         },
         executive_summary="SEBI requires Sample Broker Pvt Ltd. to enforce a hard cap of 1:5 on proprietary intraday leverage for equity futures based on collateral value. Clearing members are mandated to automatically reject orders exceeding this threshold. Compliance telemetry must be linked directly to risk control registries.",
         decision_metadata={
-            "priority_order": ["P0: Leverage Cap Enforcement", "P1: OMS Threshold Rejection", "P2: Audit Log Integration"],
+            "priority_order": [
+                "P0: Clause 1.1 – Leverage Cap Enforcement",
+                "P1: Clause 1.1 – OMS Threshold Rejection",
+                "P2: Clause 1.1 – Audit Log Integration"
+            ],
             "escalation_needed": False,
-            "approval_required": True
+            "approval_required": True,
+            "recommended_actions": [
+                "Enforce a strict 1:5 intraday leverage cap on proprietary equity futures trades.",
+                "Configure OMS to reject any order execution that breaches leverage caps.",
+                "Implement real-time telemetry alerts at 80% collateral threshold."
+            ],
+            "dependencies": [
+                "OMS rejection filter depends on real-time collateral database synchronization.",
+                "Alert triggers depend on SMTP notifications setup."
+            ],
+            "key_findings": [
+                "Per Clause 1.1: Intraday proprietary leverage cap is limited to 1:5.",
+                "Per Clause 1.1: Clearing members must block orders exceeding leverage threshold.",
+                "Per Clause 1.1: Warning notifications must alert risk management officers."
+            ],
+            "immediate_actions_required": [
+                "Configure hard RMS limits parameter cap to 1:5 per Clause 1.1.",
+                "Establish real-time margin warning alerts per Clause 1.1."
+            ],
+            "affected_departments": ["Risk", "IT", "Compliance"],
+            "implementation_timeline": "Cap enforcement is immediate from circular effective date. SMTP warnings setup within 1 week.",
+            "referenced_regulations": ["SEBI Equity Futures Rules 2018", "Risk Management Circular 2021"]
         },
         explainability_data={}
     )
@@ -177,32 +227,57 @@ async def seed_demo_data(db: AsyncSession) -> None:
         regulatory_ai_analysis={
             "status": "completed",
             "confidence": 0.97,
-            "analysis": "Analyzed ITD cyber threat notification requirements.",
-            "recommendations": ["Formulate rapid incident reporting systems."]
+            "analysis": "Analyzed ITD cyber threat notification requirements. Extracted Clause 2.3 detailing SLA constraints.",
+            "recommendations": ["Formulate rapid incident reporting systems per Clause 2.3."]
         },
         risk_ai_analysis={
             "status": "completed",
             "confidence": 0.94,
-            "analysis": "Identified timeline vulnerability in reporting gaps.",
+            "analysis": "Identified timeline vulnerability in reporting gaps under Clause 2.3.",
             "recommendations": ["Align incident timeline checks to 6-hour SEBI SLA."]
         },
         operations_ai_analysis={
             "status": "completed",
             "confidence": 0.95,
-            "analysis": "Requires SOC log parser and notification portal setup.",
+            "analysis": "Requires SOC log parser and notification portal setup for Clause 2.3.",
             "recommendations": ["Deploy rapid notification triggers in IT portal."]
         },
         audit_ai_analysis={
             "status": "completed",
             "confidence": 0.98,
-            "analysis": "Requires syslog audits and mock drill logbooks.",
+            "analysis": "Requires syslog audits and mock drill logbooks mapped to Clause 2.3.",
             "recommendations": ["Conduct annual cybersecurity incident mock drills."]
         },
         executive_summary="SEBI has mandated that Sample Asset Management Co. must report all cybersecurity incidents and critical system threats to SEBI and CERT-In within 6 hours of discovery. Failures to report lead to severe governance penalties and board escalations.",
         decision_metadata={
-            "priority_order": ["P0: Incident SLA Setup", "P1: CERT-In Notification Automation", "P2: Audit System Logs"],
+            "priority_order": [
+                "P0: Clause 2.3 – Incident SLA Setup",
+                "P1: Clause 2.3 – CERT-In Notification Automation",
+                "P2: Clause 2.3 – Audit System Logs"
+            ],
             "escalation_needed": True,
-            "approval_required": False
+            "approval_required": False,
+            "recommended_actions": [
+                "Configure SOC tools to auto-detect and categorize threat incidents.",
+                "Establish 6-hour SLA reporting workflows in IT operations desk.",
+                "Automate reporting template submissions to CERT-In portal."
+            ],
+            "dependencies": [
+                "CERT-In submission automation depends on secure API integrations.",
+                "SLA alerting depends on 24/7 watch desk rotations."
+            ],
+            "key_findings": [
+                "Per Clause 2.3: Cybersecurity incident notification is capped at 6 hours.",
+                "Per Clause 2.3: Reports must be sent to both SEBI and CERT-In.",
+                "Per Clause 2.3: Logging and logbook drills must be completed annually."
+            ],
+            "immediate_actions_required": [
+                "Establish automated syslog threat alerting per Clause 2.3.",
+                "Assign CISO review checkpoints for incident reports per Clause 2.3."
+            ],
+            "affected_departments": ["IT", "Compliance", "Risk"],
+            "implementation_timeline": "SLA reporting must be active immediately. Annual incident drill must occur within 90 days.",
+            "referenced_regulations": ["SEBI Cybersecurity Circular 2023", "CERT-In Ingestion Mandate 2022"]
         },
         explainability_data={}
     )
@@ -301,13 +376,19 @@ async def seed_demo_data(db: AsyncSession) -> None:
                 db.add(audit)
                 
                 # Add Explainability
+                # Generate a clean action statement from the obligation description
+                action_words = o_data["desc"][:80].rstrip(".")
+                action_required = f"Implement: {action_words}" if action_words else f"Implement compliance controls for {clause.title}."
+
                 explain_items.append({
                     "source_clause": f"Clause {clause.clause_number} - {clause.title}",
                     "reason": o_data["risk_reason"],
                     "confidence": o_data["confidence"],
                     "supporting_context": clause.text_content[:200],
-                    "affected_entity": o_data["depts"][0] if o_data["depts"] else "Compliance",
-                    "evidence_required": o_data["evidence"]
+                    "affected_entity": ", ".join(o_data["depts"]) if o_data["depts"] else "Compliance",
+                    "evidence_required": o_data["evidence"],
+                    "source_text_snippet": o_data.get("desc", clause.text_content),
+                    "action_required": action_required
                 })
 
         # Update Session with Explainability data

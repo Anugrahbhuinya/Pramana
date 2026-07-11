@@ -11,7 +11,9 @@ import {
   RefreshCw,
   Clock,
   Shield,
-  ArrowRight
+  ArrowRight,
+  Zap,
+  AlertTriangle
 } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { MetricCard } from "@/components/ui/metric-card";
@@ -80,6 +82,15 @@ const CircularProgress: React.FC<{ value: number; size?: number; strokeWidth?: n
 export const Dashboard: React.FC = () => {
   const { toast } = useToast();
   const [seeding, setSeeding] = React.useState(false);
+
+  // Fetch AI server / status endpoint
+  const { data: statusData } = useQuery({
+    queryKey: ["platform-status"],
+    queryFn: async () => {
+      const response = await api.get("/status");
+      return response.data;
+    },
+  });
 
   const { data: summary, isLoading, isError, refetch, isRefetching } = useQuery({
     queryKey: ["dashboard-summary"],
@@ -175,6 +186,8 @@ export const Dashboard: React.FC = () => {
         { name: "Compliance", count: 8 }
       ];
 
+  const isLiveAI = statusData?.mode === "live";
+
   return (
     <div className="space-y-8 animate-fade-in-up text-left">
       {/* Page Header */}
@@ -183,6 +196,18 @@ export const Dashboard: React.FC = () => {
         description="Monitor organization-wide SEBI compliance readiness, risks, and active obligations."
         actions={
           <div className="flex items-center space-x-3">
+            {/* Status Pill */}
+            {isLiveAI ? (
+              <Badge className="bg-accent-emerald-500/10 text-accent-emerald-500 border border-accent-emerald-500/20 hover:bg-accent-emerald-500/10 font-bold uppercase tracking-wider text-[10px] py-1 px-2.5 flex items-center gap-1">
+                <Zap className="h-3 w-3" />
+                Live AI Active
+              </Badge>
+            ) : (
+              <Badge className="bg-blue-500/10 text-blue-400 border border-blue-500/20 hover:bg-blue-500/10 font-bold uppercase tracking-wider text-[10px] py-1 px-2.5">
+                Demo Mode
+              </Badge>
+            )}
+
             <button
               onClick={() => refetch()}
               disabled={isRefetching}
@@ -209,6 +234,20 @@ export const Dashboard: React.FC = () => {
           </div>
         }
       />
+
+      {/* Demo Mode Notice Banner */}
+      {!isLiveAI && (
+        <div className="p-4 rounded-xl border border-blue-500/20 bg-blue-500/5 text-xs text-blue-400 flex items-start gap-3 shadow-sm">
+          <AlertTriangle className="h-5 w-5 shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <span className="font-bold block text-blue-300">Running in Demo Mode</span>
+            <p className="leading-relaxed">
+              Pramana is currently operating with pre-seeded demo telemetry. Upload an official SEBI circular PDF in the 
+              <strong> Ingestion workspace</strong> to execute grounded live AI compliance mapping and build custom digital twins.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Hero Experience Area: Above the fold */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

@@ -13,7 +13,10 @@ import {
   CheckCircle,
   HelpCircle,
   AlertTriangle,
-  Loader2
+  Loader2,
+  Zap,
+  BookOpen,
+  Calendar,
 } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
@@ -181,6 +184,17 @@ export const AnalysisPage: React.FC = () => {
         description={session.regulation_title || "Regulatory Circular Findings"}
         actions={
           <div className="flex items-center space-x-2">
+            {/* Live AI / Demo Mode Badge */}
+            {session.analysis_mode === "live_ai" ? (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-accent-emerald-500/10 text-accent-emerald-500 border border-accent-emerald-500/20">
+                <Zap className="h-3 w-3" />
+                Live AI
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                Demo Mode
+              </span>
+            )}
             <button
               onClick={handlePrint}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-50 transition-all shadow-sm"
@@ -315,9 +329,9 @@ export const AnalysisPage: React.FC = () => {
                 {extractedObligations.map((ob: any, idx: number) => (
                   <div key={idx} className="p-5 hover:bg-slate-50/50 dark:hover:bg-slate-900/10 transition-colors">
                     <div className="flex items-start justify-between gap-4">
-                      <div className="space-y-1 text-left">
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono text-[11px] font-bold text-slate-900 dark:text-slate-100">
+                      <div className="space-y-2 text-left flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-mono text-[11px] font-bold text-slate-900 dark:text-slate-100 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded">
                             {ob.source_clause}
                           </span>
                           <span className="h-1.5 w-1.5 rounded-full bg-slate-300 dark:bg-slate-700" />
@@ -325,16 +339,29 @@ export const AnalysisPage: React.FC = () => {
                             {ob.affected_entity}
                           </span>
                         </div>
-                        <h4 className="text-xs font-semibold text-slate-800 dark:text-slate-200 pt-1 leading-relaxed">
+                        <h4 className="text-xs font-semibold text-slate-800 dark:text-slate-200 leading-relaxed">
                           {ob.reason}
                         </h4>
-                        <div className="text-[10px] text-slate-500 leading-relaxed bg-slate-50 dark:bg-slate-950/40 p-2.5 rounded-lg border border-slate-200/40 dark:border-slate-850/40 mt-2">
+                        {/* Source text snippet — grounding citation */}
+                        {ob.source_text_snippet && (
+                          <blockquote className="text-[10px] text-slate-500 dark:text-slate-400 italic leading-relaxed border-l-2 border-accent-emerald-500/40 pl-3 bg-accent-emerald-500/5 py-1.5 rounded-r-lg">
+                            "{ob.source_text_snippet}"
+                          </blockquote>
+                        )}
+                        {/* Action required chip */}
+                        {ob.action_required && (
+                          <div className="text-[10px] text-accent-emerald-600 dark:text-accent-emerald-400 font-semibold bg-accent-emerald-500/8 border border-accent-emerald-500/20 px-2.5 py-1.5 rounded-lg flex items-start gap-1.5">
+                            <BookOpen className="h-3 w-3 shrink-0 mt-0.5" />
+                            <span>{ob.action_required}</span>
+                          </div>
+                        )}
+                        <div className="text-[10px] text-slate-500 leading-relaxed bg-slate-50 dark:bg-slate-950/40 p-2.5 rounded-lg border border-slate-200/40 dark:border-slate-850/40">
                           <span className="font-semibold block text-slate-400 uppercase text-[8px] mb-1">Required Evidence</span>
                           {ob.evidence_required}
                         </div>
                       </div>
                       <Badge variant="emerald" className="font-mono font-bold shrink-0 text-[10px]">
-                        {Math.round(ob.confidence * 100)}% Match
+                        {Math.round(ob.confidence * 100)}%
                       </Badge>
                     </div>
                   </div>
@@ -406,6 +433,42 @@ export const AnalysisPage: React.FC = () => {
               )}
             </CardContent>
           </Card>
+
+          {/* Implementation Timeline */}
+          {summary?.implementation_timeline && (
+            <Card className="border border-slate-200 dark:border-slate-800">
+              <CardHeader className="pb-3 border-b border-slate-100 dark:border-slate-800/60">
+                <CardTitle className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <Calendar className="h-3.5 w-3.5 text-accent-emerald-500" />
+                  Implementation Timeline
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-4">
+                <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                  {summary.implementation_timeline}
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Referenced Regulations */}
+          {summary?.referenced_regulations && summary.referenced_regulations.length > 0 && (
+            <Card className="border border-slate-200 dark:border-slate-800">
+              <CardHeader className="pb-3 border-b border-slate-100 dark:border-slate-800/60">
+                <CardTitle className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                  Referenced Acts & Regulations
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-4 space-y-1.5">
+                {summary.referenced_regulations.map((ref: string, idx: number) => (
+                  <div key={idx} className="text-[10px] text-slate-600 dark:text-slate-400 flex items-start gap-2">
+                    <span className="text-accent-emerald-500 font-bold mt-0.5">›</span>
+                    <span>{ref}</span>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     </div>
