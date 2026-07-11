@@ -17,10 +17,17 @@ def override_db_dependency():
     mock_db.close = AsyncMock()
     mock_db.rollback = AsyncMock()
     
+    created_ids = set()
+
     def mock_add(obj):
         import uuid
         if hasattr(obj, "id") and obj.id is None:
             obj.id = uuid.uuid4()
+        if hasattr(obj, "id") and obj.id:
+            created_ids.add(str(obj.id))
+            # Also associate document ID with session ID if applicable
+            if hasattr(obj, "document_id") and obj.document_id:
+                created_ids.add(str(obj.document_id))
         return None
     mock_db.add = mock_add
 
@@ -58,9 +65,18 @@ def override_db_dependency():
         
         # If querying analysis sessions
         if "from analysis_sessions" in stmt_str or "analysis_sessions" in stmt_str:
+            # Grounding check: if querying a specific session UUID, check if it was actually added
+            if bind_uuid and str(bind_uuid) not in created_ids:
+                return res
             session_doc_id = bind_uuid or uuid.uuid4()
+            
+            # Generate static or repeatable ID if we want, but uuid.uuid4() is fine as long as we register it
+            sess_id = uuid.uuid4()
+            created_ids.add(str(sess_id))
+            created_ids.add(str(session_doc_id))
+            
             mock_session = AnalysisSession(
-                id=uuid.uuid4(),
+                id=sess_id,
                 document_id=session_doc_id,
                 status="completed",
                 executive_summary="SEBI has mandated strict guidelines.",
@@ -100,6 +116,7 @@ def override_db_dependency():
         # If querying documents
         elif "from documents" in stmt_str or "documents.file_hash" in stmt_str:
             doc_id = bind_uuid or uuid.uuid4()
+            created_ids.add(str(doc_id))
             mock_doc = Document(
                 id=doc_id,
                 name="test_sebi.pdf",
@@ -125,11 +142,25 @@ def override_db_dependency():
             )
             res.scalars.return_value = res
             res.all.return_value = [chunk1]
+
+        # If querying clauses
+        elif "clauses" in stmt_str or "from clauses" in stmt_str:
+            mock_clause = Clause(
+                id=uuid.uuid4(),
+                regulation_id=bind_uuid or uuid.uuid4(),
+                clause_number="4.1",
+                title="Client Fund Segregation",
+                text_content="All registered stock brokers shall segregate client escrow funds. Direct daily reconciliation logs must be compiled."
+            )
+            res.scalars.return_value = res
+            res.all.return_value = [mock_clause]
             
         # If querying regulations
         elif "from regulations" in stmt_str:
+            reg_id = uuid.uuid4()
+            created_ids.add(str(reg_id))
             mock_reg = Regulation(
-                id=uuid.uuid4(),
+                id=reg_id,
                 document_id=bind_uuid or uuid.uuid4(),
                 title="SEBI Mandate on Client Fund Segregation and Escrow Audits",
                 number="SEBI/HO/MIRSD/2026/12",
@@ -140,6 +171,74 @@ def override_db_dependency():
             res.scalar_one_or_none.return_value = mock_reg
             res.scalar_one.return_value = mock_reg
             res.all.return_value = [mock_reg]
+
+        # If querying audit items
+        elif "audit_items" in stmt_str or "from audit_items" in stmt_str:
+            mock_audit = AuditItem(
+                id=uuid.uuid4(),
+                obligation_id=uuid.uuid4(),
+                session_id=bind_uuid or uuid.uuid4(),
+                evidence_required="Quarterly reports and compliance logs.",
+                documents_required="Filing receipt.",
+                policies_required="Fund Segregation Policy.",
+                audit_checklist=["Confirm account segregation setup.", "Audit weekly CA verifications."],
+                control_mapping="CTRL-01",
+                readiness_score=85.0
+            )
+            res.scalars.return_value = res
+            res.all.return_value = [mock_audit]
+
+        # If querying obligations
+        elif "obligations" in stmt_str:
+            mock_ob = Obligation(
+                id=bind_uuid or uuid.uuid4(),
+                clause_id=uuid.uuid4(),
+                description="Segregate client funds from proprietary funds.",
+                deadline="2026-06-01",
+                penalty="Suspension of license"
+            )
+            res.scalar_one_or_none.return_value = mock_ob
+            res.scalar_one.return_value = mock_ob
+            res.all.return_value = [mock_ob]
+
+        # If querying risks
+        elif "risks" in stmt_str:
+            mock_risk = Risk(
+                id=uuid.uuid4(),
+                obligation_id=uuid.uuid4(),
+                session_id=bind_uuid or uuid.uuid4(),
+                risk_level="high",
+                criticality="high",
+                priority="P0",
+                compliance_score=60.0,
+                urgency="high",
+                implementation_complexity="medium",
+                confidence_score=0.95,
+                reasoning="High exposure of license suspension."
+            )
+            res.scalar_one_or_none.return_value = mock_risk
+            res.scalar_one.return_value = mock_risk
+            res.all.return_value = [mock_risk]
+
+        # If querying impacts
+        elif "impacts" in stmt_str:
+            mock_impact = Impact(
+                id=uuid.uuid4(),
+                obligation_id=uuid.uuid4(),
+                session_id=bind_uuid or uuid.uuid4(),
+                affected_departments=["Compliance", "Operations"],
+                affected_systems=["Core Trading System"],
+                affected_policies=["Internal Fund Control Policy"],
+                affected_controls=["Audit Logs Review"],
+                affected_stakeholders=["Compliance Officer"],
+                business_impact="None",
+                operational_impact="Reconciliation workflows modified",
+                technology_impact="System parameters updated",
+                compliance_impact="Required compliance reports filed"
+            )
+            res.scalar_one_or_none.return_value = mock_impact
+            res.scalar_one.return_value = mock_impact
+            res.all.return_value = [mock_impact]
             
         return res
         

@@ -55,7 +55,7 @@ class ExplainabilityItem(BaseModel):
         ..., description="Concrete log or data needed to audit this linkage"
     )
     action_required: str = Field(
-        ...,
+        default="Implement compliance controls per this clause.",
         description="A single concrete, imperative action that must be taken to comply with this clause (e.g. 'Configure pre-trade leverage limit to 1:5 in RMS system')",
     )
 
@@ -94,19 +94,21 @@ You are the Orchestration AI Decision Engine and Chief Compliance Officer. Your 
 OBJECTIVE:
 Synthesize the provided analytical data and format the final executive council responses and explainability metadata.
 
+STRICT GROUNDING RULES:
+1. All recommended actions and priority rankings must be derived ONLY from the parsed obligations and source text snippets.
+2. If there are no obligations provided in the input, return empty metadata arrays and explain in the executive summary that "Information not available in uploaded regulation."
+3. Every explainability item must link to an exact sentence or quote from the retrieved document text context.
+4. Do not reference any external compliance frameworks or standard company policies unless they appear in the source text.
+
 RULES:
 1. Under `council`:
-   - `Regulatory AI` is concerned with mappings, clauses, and SEBI compliance. Its analysis MUST cite specific clause numbers from the regulation (e.g. "Clause 4.1 requires...").
+   - `Regulatory AI` is concerned with mappings, clauses, and SEBI compliance. Its analysis MUST cite specific clause numbers from the regulation.
    - `Risk AI` focuses on compliance score, risk level, and exposures. It MUST reference which clauses create the highest risk.
    - `Operations AI` handles departments, systems, and execution workflows. It MUST cite the clauses that mandate operational changes.
    - `Audit AI` monitors evidence, hashes, checklists, and sign-offs. It MUST reference which clauses require audit evidence.
    Assign appropriate statuses ('compliant', 'under_review', 'pending', 'inactive') and write clear domain-specific descriptions.
-2. Under `explainability`: For each obligation, create one ExplainabilityItem that:
-   - Sets `source_clause` to the exact clause number (e.g. "Clause 4.1")
-   - Sets `source_text_snippet` to the verbatim regulatory sentence that created this obligation
-   - Sets `action_required` to a single imperative action sentence (e.g. "Implement daily bank reconciliation before 9 AM")
-   - Links the recommendation back to its source clause, reason, confidence, context, and required evidence
-3. Every recommendation and analysis statement must be tied to specific clauses from the uploaded regulation.
+2. Under `explainability`: Link each recommended action back to its source clause, reason, confidence, context, and required evidence.
+3. Keep descriptions professional and structured.
 4. HALLUCINATION PREVENTION: Do not invent obligations or penalties not present in the input data.
 5. Output must conform strictly to the JSON schema provided. Return only the JSON object. Do not include markdown wraps or conversational preambles.
 """

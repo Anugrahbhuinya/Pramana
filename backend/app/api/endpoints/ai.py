@@ -203,6 +203,11 @@ async def upload_document(
         )
 
     file_bytes = await file.read()
+    if not file_bytes or len(file_bytes) == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Uploaded file is empty.",
+        )
 
     # Calculate hash and check duplicate
     file_hash = doc_service.calculate_hash(file_bytes)

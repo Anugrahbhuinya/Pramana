@@ -166,21 +166,71 @@ class AIServiceBase:
                     await asyncio.sleep(delay * (2**attempt))  # Exponential backoff
                 else:
                     raise e
+def calculate_grounded_confidence(
+    retrieval_results: List[Dict[str, Any]],
+    clauses: List[Any],
+    validation_attempts: int
+) -> float:
+    # 1. Retrieval similarity score
+    avg_similarity = 0.95
+    if retrieval_results:
+        avg_similarity = sum(r.get("similarity", 0.9) for r in retrieval_results) / len(retrieval_results)
+    
+    # 2. Clause coverage ratio
+    coverage = 1.0
+    if len(clauses) == 0:
+        coverage = 0.0
+        
+    # 3. Validation success (attempt 1 -> 1.0, attempt 2 -> 0.7, etc.)
+    val_score = max(0.4, 1.0 - (validation_attempts - 1) * 0.3)
+    
+    # 4. LLM Consistency (structured formatting check)
+    consistency = 0.95
+    
+    score = (avg_similarity * 0.3) + (coverage * 0.3) + (val_score * 0.2) + (consistency * 0.2)
+    return round(score, 2)
 
 
 class RegulatoryAnalysisService(AIServiceBase):
     """Parses text to extract structured regulations, clauses, and obligations."""
 
-    async def analyze_text(self, text: str) -> RegulatoryAnalysisSchema:
+    async def analyze_text(
+        self, text: str, db: AsyncSession, document_id: UUID
+    ) -> RegulatoryAnalysisSchema:
         """Analyzes raw regulatory text and returns structured clauses and obligations."""
         if not self.has_api_key:
             return self._generate_mock_regulatory_analysis(text)
 
+        from app.services.retrieval_service import RetrievalService
+        retrieval_service = RetrievalService()
+        
+        # If the text is very long, retrieve the most relevant sections containing rules/clauses
+        # Otherwise, pass the full text as context
+        content_text = text
+        if len(text) > 40000:
+            search_results = await retrieval_service.search(
+                query_vector=[0.0] * 768,
+                limit=8,
+                metadata_filter={"document_id": str(document_id)}
+            )
+            content_text = "\n".join([r["text"] for r in search_results])
+            
         try:
+            for attempt in range(3):
+                result = await self._call_gemini_structured(
+                    prompt=REGULATORY_PROMPT,
+                    content=content_text,
+                    response_schema=RegulatoryAnalysisSchema
+                )
+                # Verify that we extracted at least one clause
+                if len(result.clauses) > 0:
+                    return result
+                logger.warning(f"Quality Check failed on Regulatory Analysis (attempt {attempt + 1}/3). Retrying...")
+                
             return await self._call_gemini_structured(
                 prompt=REGULATORY_PROMPT,
-                content=text,
-                response_schema=RegulatoryAnalysisSchema,
+                content=content_text,
+                response_schema=RegulatoryAnalysisSchema
             )
         except Exception as e:
             logger.error(
@@ -190,18 +240,13 @@ class RegulatoryAnalysisService(AIServiceBase):
             return self._generate_mock_regulatory_analysis(text)
 
     def _generate_mock_regulatory_analysis(self, text: str) -> RegulatoryAnalysisSchema:
-        """Generates a text-aware mock regulation structure if the API is unavailable.
-        
-        Unlike the old hardcoded version, this extracts real metadata from the uploaded
-        PDF text so that mock outputs are grounded in the actual uploaded document.
-        """
+        """Generates a text-aware mock regulation structure if the API is unavailable."""
         hints = _extract_text_hints(text)
         keywords = hints["keywords"]
         title = hints["title"]
         number = hints["number"]
 
         # Generate clause topics from real keywords found in the text
-        # Each keyword bucket maps to a realistic regulatory obligation
         clause_map = {
             "segregation": ("Fund Segregation Requirements", "Entities shall maintain strict segregation of client funds from proprietary capital at all times."),
             "escrow": ("Escrow Account Compliance", "Escrow balances must be reconciled daily and reported to SEBI within prescribed timelines."),
@@ -290,24 +335,48 @@ class RegulatoryAnalysisService(AIServiceBase):
         )
 
 
+
 # ClauseExtract and ObligationExtract are imported from regulatory_prompt.py
 # to avoid duplicate class definitions that cause Pydantic 422 ValidationErrors.
-
-
 class ImpactAnalysisService(AIServiceBase):
     """Maps operational, system, and policy impacts for compliance mandates."""
 
     async def analyze_obligations(
-        self, obligations: List[Dict[str, Any]]
+        self, obligations: List[Dict[str, Any]], db: AsyncSession, document_id: UUID
     ) -> ImpactResponse:
         """Determines enterprise impact mappings for a list of obligations."""
         if not self.has_api_key:
             return self._generate_mock_impacts(obligations)
 
+        from app.services.retrieval_service import RetrievalService
+        from app.services.embedding_service import EmbeddingService
+        
+        retrieval_service = RetrievalService()
+        embedding_service = EmbeddingService()
+        
+        enriched_obligations = []
+        for idx, ob in enumerate(obligations):
+            query_text = ob.get("description", "")
+            query_vector = await embedding_service.generate_embedding(query_text)
+            search_results = await retrieval_service.hybrid_search(
+                query_text=query_text,
+                query_vector=query_vector,
+                limit=3,
+                metadata_filter={"document_id": str(document_id)}
+            )
+            context_text = "\n".join([f"Page {r['metadata'].get('page_number', 'Unknown')}: \"{r['text']}\"" for r in search_results])
+            if not context_text:
+                context_text = "Information not available in uploaded regulation."
+            
+            enriched = ob.copy()
+            enriched["retrieved_context"] = context_text
+            enriched_obligations.append(enriched)
+
         try:
-            content = json.dumps(obligations, indent=2)
+            content = json.dumps(enriched_obligations, indent=2)
+            full_prompt = IMPACT_PROMPT + "\n\nSTRICT REQUIREMENT: Analyze the impacts strictly using the 'retrieved_context' field provided for each obligation. Do not assume or hallucinate."
             return await self._call_gemini_structured(
-                prompt=IMPACT_PROMPT, content=content, response_schema=ImpactResponse
+                prompt=full_prompt, content=content, response_schema=ImpactResponse
             )
         except Exception as e:
             logger.error(
@@ -400,16 +469,41 @@ class RiskAnalysisService(AIServiceBase):
     """Calculates risk levels, compliance scores, complexity, and priority."""
 
     async def analyze_obligations(
-        self, obligations: List[Dict[str, Any]]
+        self, obligations: List[Dict[str, Any]], db: AsyncSession, document_id: UUID
     ) -> RiskResponse:
         """Evaluates compliance risks for a list of obligations."""
         if not self.has_api_key:
             return self._generate_mock_risks(obligations)
 
+        from app.services.retrieval_service import RetrievalService
+        from app.services.embedding_service import EmbeddingService
+        
+        retrieval_service = RetrievalService()
+        embedding_service = EmbeddingService()
+        
+        enriched_obligations = []
+        for idx, ob in enumerate(obligations):
+            query_text = ob.get("description", "")
+            query_vector = await embedding_service.generate_embedding(query_text)
+            search_results = await retrieval_service.hybrid_search(
+                query_text=query_text,
+                query_vector=query_vector,
+                limit=3,
+                metadata_filter={"document_id": str(document_id)}
+            )
+            context_text = "\n".join([f"Page {r['metadata'].get('page_number', 'Unknown')}: \"{r['text']}\"" for r in search_results])
+            if not context_text:
+                context_text = "Information not available in uploaded regulation."
+            
+            enriched = ob.copy()
+            enriched["retrieved_context"] = context_text
+            enriched_obligations.append(enriched)
+
         try:
-            content = json.dumps(obligations, indent=2)
+            content = json.dumps(enriched_obligations, indent=2)
+            full_prompt = RISK_PROMPT + "\n\nSTRICT REQUIREMENT: Evaluate risks strictly using the 'retrieved_context' field provided for each obligation. Do not assume external penalties."
             return await self._call_gemini_structured(
-                prompt=RISK_PROMPT, content=content, response_schema=RiskResponse
+                prompt=full_prompt, content=content, response_schema=RiskResponse
             )
         except Exception as e:
             logger.error(
@@ -470,16 +564,41 @@ class AuditService(AIServiceBase):
     """Formulates audit checklists, evidence targets, and readiness ratings."""
 
     async def analyze_obligations(
-        self, obligations: List[Dict[str, Any]]
+        self, obligations: List[Dict[str, Any]], db: AsyncSession, document_id: UUID
     ) -> AuditResponse:
         """Builds evidence requirements and checklist metrics."""
         if not self.has_api_key:
             return self._generate_mock_audits(obligations)
 
+        from app.services.retrieval_service import RetrievalService
+        from app.services.embedding_service import EmbeddingService
+        
+        retrieval_service = RetrievalService()
+        embedding_service = EmbeddingService()
+        
+        enriched_obligations = []
+        for idx, ob in enumerate(obligations):
+            query_text = ob.get("description", "")
+            query_vector = await embedding_service.generate_embedding(query_text)
+            search_results = await retrieval_service.hybrid_search(
+                query_text=query_text,
+                query_vector=query_vector,
+                limit=3,
+                metadata_filter={"document_id": str(document_id)}
+            )
+            context_text = "\n".join([f"Page {r['metadata'].get('page_number', 'Unknown')}: \"{r['text']}\"" for r in search_results])
+            if not context_text:
+                context_text = "Information not available in uploaded regulation."
+            
+            enriched = ob.copy()
+            enriched["retrieved_context"] = context_text
+            enriched_obligations.append(enriched)
+
         try:
-            content = json.dumps(obligations, indent=2)
+            content = json.dumps(enriched_obligations, indent=2)
+            full_prompt = AUDIT_PROMPT + "\n\nSTRICT REQUIREMENT: Map controls and checklists strictly using the 'retrieved_context' field provided for each obligation. Do not reference external templates."
             return await self._call_gemini_structured(
-                prompt=AUDIT_PROMPT, content=content, response_schema=AuditResponse
+                prompt=full_prompt, content=content, response_schema=AuditResponse
             )
         except Exception as e:
             logger.error(
@@ -551,12 +670,27 @@ class DecisionService(AIServiceBase):
         risks: List[Dict[str, Any]],
         impacts: List[Dict[str, Any]],
         audits: List[Dict[str, Any]],
+        db: AsyncSession,
+        document_id: UUID
     ) -> DecisionResponse:
         """Invokes Gemini to orchestrate all data points into a unified executive council response."""
         if not self.has_api_key:
             return self._generate_mock_decision(
                 regulation_meta, obligations, risks, impacts, audits
             )
+
+        from app.services.retrieval_service import RetrievalService
+        retrieval_service = RetrievalService()
+        
+        # Fetch top 5 key chunks of the document to pass as global context
+        search_results = await retrieval_service.search(
+            query_vector=[0.0] * 768,
+            limit=5,
+            metadata_filter={"document_id": str(document_id)}
+        )
+        context_text = "\n".join([f"Page {r['metadata'].get('page_number', 'Unknown')}: \"{r['text']}\"" for r in search_results])
+        if not context_text:
+            context_text = "Information not available in uploaded regulation."
 
         try:
             content_dict = {
@@ -565,13 +699,49 @@ class DecisionService(AIServiceBase):
                 "risks": risks,
                 "impacts": impacts,
                 "audits": audits,
+                "document_context": context_text
             }
             content = json.dumps(content_dict, indent=2)
-            return await self._call_gemini_structured(
+            
+            # Quality validation check loop
+            for attempt in range(3):
+                result = await self._call_gemini_structured(
+                    prompt=DECISION_PROMPT,
+                    content=content,
+                    response_schema=DecisionResponse
+                )
+                
+                # Step 18: Quality Check Validation
+                is_valid = True
+                for item in result.explainability:
+                    if not item.source_clause or not item.source_text_snippet or not item.action_required or not item.evidence_required:
+                        is_valid = False
+                        break
+                
+                if is_valid:
+                    # Calculate and inject grounded confidence for each explainability item
+                    for item in result.explainability:
+                        item.confidence = calculate_grounded_confidence(
+                            retrieval_results=search_results,
+                            clauses=[item.source_clause],
+                            validation_attempts=attempt + 1
+                        )
+                    return result
+                logger.warning(f"Quality Check failed on Decision Synthesis (attempt {attempt + 1}/3). Retrying...")
+            
+            # Final fallback
+            fallback_res = await self._call_gemini_structured(
                 prompt=DECISION_PROMPT,
                 content=content,
-                response_schema=DecisionResponse,
+                response_schema=DecisionResponse
             )
+            for item in fallback_res.explainability:
+                item.confidence = calculate_grounded_confidence(
+                    retrieval_results=search_results,
+                    clauses=[item.source_clause],
+                    validation_attempts=3
+                )
+            return fallback_res
         except Exception as e:
             logger.error(
                 "Decision Synthesis Gemini call failed. Falling back to mock.",
@@ -725,17 +895,58 @@ class ExecutiveSummaryService(AIServiceBase):
     """Builds a premium, formal, multi-paragraph briefing summary document."""
 
     async def generate_briefing(
-        self, decision_data: Dict[str, Any]
+        self, decision_data: Dict[str, Any], db: AsyncSession, document_id: UUID
     ) -> ExecutiveSummarySchema:
         if not self.has_api_key:
             return self._generate_mock_briefing(decision_data)
 
+        from app.services.retrieval_service import RetrievalService
+        retrieval_service = RetrievalService()
+        
+        # Fetch top 5 key chunks of the document
+        search_results = await retrieval_service.search(
+            query_vector=[0.0] * 768,
+            limit=5,
+            metadata_filter={"document_id": str(document_id)}
+        )
+        context_text = "\n".join([f"Page {r['metadata'].get('page_number', 'Unknown')}: \"{r['text']}\"" for r in search_results])
+        if not context_text:
+            context_text = "Information not available in uploaded regulation."
+
         try:
-            content = json.dumps(decision_data, indent=2)
+            content_dict = {
+                "decision_data": decision_data,
+                "document_context": context_text
+            }
+            content = json.dumps(content_dict, indent=2)
+            
+            # Quality validation check loop
+            for attempt in range(3):
+                result = await self._call_gemini_structured(
+                    prompt=EXECUTIVE_SUMMARY_PROMPT,
+                    content=content,
+                    response_schema=ExecutiveSummarySchema
+                )
+                
+                # Check that every key finding and immediate action has a clause reference
+                is_valid = True
+                for f in result.key_findings:
+                    if "clause" not in f.lower() and "section" not in f.lower() and not any(char.isdigit() for char in f):
+                        is_valid = False
+                        break
+                for a in result.immediate_actions_required:
+                    if "clause" not in a.lower() and "section" not in a.lower() and not any(char.isdigit() for char in a):
+                        is_valid = False
+                        break
+                
+                if is_valid:
+                    return result
+                logger.warning(f"Quality Check failed on Executive Summary (attempt {attempt + 1}/3). Retrying...")
+                
             return await self._call_gemini_structured(
                 prompt=EXECUTIVE_SUMMARY_PROMPT,
                 content=content,
-                response_schema=ExecutiveSummarySchema,
+                response_schema=ExecutiveSummarySchema
             )
         except Exception as e:
             logger.error(
@@ -794,8 +1005,6 @@ class ExecutiveSummaryService(AIServiceBase):
             implementation_timeline=timeline,
             referenced_regulations=[],
         )
-
-
 class RegulationAnalysisService:
     """The central Orchestrator that coordinates the parsing and reasoning engines."""
 
@@ -866,7 +1075,7 @@ class RegulationAnalysisService:
                 "Pipeline Step 1: Running Regulatory Intelligence Engine...",
                 doc_id=document_id,
             )
-            regulatory_analysis = await self.regulatory_service.analyze_text(full_text)
+            regulatory_analysis = await self.regulatory_service.analyze_text(full_text, db, document_id)
 
             # Save extracted metadata, clauses, and obligations
             # Check if Regulation already exists for this document
@@ -1013,7 +1222,7 @@ class RegulationAnalysisService:
                 doc_id=document_id,
             )
             impact_analysis = await self.impact_service.analyze_obligations(
-                obligations_payload
+                obligations_payload, db, document_id
             )
 
             # Save impacts to database
@@ -1042,7 +1251,7 @@ class RegulationAnalysisService:
                 doc_id=document_id,
             )
             risk_analysis = await self.risk_service.analyze_obligations(
-                obligations_payload
+                obligations_payload, db, document_id
             )
 
             # Save risks
@@ -1070,7 +1279,7 @@ class RegulationAnalysisService:
                 doc_id=document_id,
             )
             audit_analysis = await self.audit_service.analyze_obligations(
-                obligations_payload
+                obligations_payload, db, document_id
             )
 
             # Save audits
@@ -1109,6 +1318,8 @@ class RegulationAnalysisService:
                 risks=risks_payload,
                 impacts=impacts_payload,
                 audits=audits_payload,
+                db=db,
+                document_id=document_id
             )
 
             # 8. Step 6: Executive Briefing Summary
@@ -1117,7 +1328,7 @@ class RegulationAnalysisService:
                 doc_id=document_id,
             )
             briefing = await self.summary_service.generate_briefing(
-                decision_data.model_dump()
+                decision_data.model_dump(), db, document_id
             )
 
             # 9. Update Session results

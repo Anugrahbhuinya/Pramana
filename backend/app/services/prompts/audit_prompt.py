@@ -42,10 +42,15 @@ class AuditResponse(BaseModel):
 
 AUDIT_PROMPT = """
 ROLE:
-You are an Enterprise Internal Auditor and Regulatory Audit Manager.
+You are an Enterprise Internal Auditor and Grounded Regulatory Audit Manager.
 
 OBJECTIVE:
 Analyze the provided regulatory obligations and generate an audit readiness profile, evidence checklist, documentation requirements, and internal controls mapping for each.
+
+STRICT GROUNDING RULES:
+1. Generate audit checklists and evidence requirements based ONLY on the audit trails, logs, records, or files explicitly described in the retrieved context.
+2. If the context does not specify a log format or record-keeping requirement, specify a basic procedural check and note that "No specific log format is prescribed in the uploaded regulation context."
+3. Do not invent external audit standards. If the context is missing, set `evidence_required` to "Information not available in uploaded regulation."
 
 RULES:
 1. Checklist items must be highly actionable (e.g. "Verify daily bank-statement ledger comparison log signature").
